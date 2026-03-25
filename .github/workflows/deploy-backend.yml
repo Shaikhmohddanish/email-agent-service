@@ -12,22 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install doctl
-        uses: digitalocean/action-doctl@v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
-      - name: Login to DO Container Registry
-        run: doctl registry login --expiry-seconds 600
-
-      - name: Build and Push Docker image
-        run: |
-          docker build -t registry.digitalocean.com/${{ secrets.DO_REGISTRY_NAME }}/email-agent-api:latest ./backend
-          docker push registry.digitalocean.com/${{ secrets.DO_REGISTRY_NAME }}/email-agent-api:latest
-
       - name: Deploy to Droplet via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -35,11 +19,19 @@ jobs:
           username: root
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            # Login to registry using doctl-style API token auth
-            echo ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} | docker login registry.digitalocean.com -u ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} --password-stdin
+            set -e
 
-            # Pull latest image
-            docker pull registry.digitalocean.com/${{ secrets.DO_REGISTRY_NAME }}/email-agent-api:latest
+            # Pull latest code from GitHub
+            if [ -d /opt/email-agent/repo ]; then
+              cd /opt/email-agent/repo
+              git pull origin main
+            else
+              git clone https://github.com/Shaikhmohddanish/email-agent-service.git /opt/email-agent/repo
+            fi
+
+            # Build Docker image locally on the server
+            cd /opt/email-agent/repo/backend
+            docker build -t email-agent-api:latest .
 
             # Stop and remove old container
             docker stop email-agent-api 2>/dev/null || true
@@ -53,11 +45,9 @@ jobs:
               --env-file /opt/email-agent/.env \
               -v /opt/email-agent/backend/credentials.json:/app/credentials.json \
               -v /opt/email-agent/backend/token.json:/app/token.json \
-              registry.digitalocean.com/${{ secrets.DO_REGISTRY_NAME }}/email-agent-api:latest
+              email-agent-api:latest
 
-            # Clean up old local images
+            # Clean up dangling images
             docker image prune -f
 
-      - name: Garbage collect old images from registry
-        run: |
-          doctl registry garbage-collection start --include-untagged-manifests --force
+            echo "Deployment complete!"
