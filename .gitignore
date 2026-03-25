@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Google OAuth tokens (sensitive)
+backend/token.json
+backend/credentials.json
+
+# Test files
+backend/test_jwt.py
+
+# Logs
+*.log
+
+# Gemini agent artifacts
+.gemini/
