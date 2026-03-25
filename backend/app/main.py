@@ -1,7 +1,10 @@
+import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.utils.logger import setup_logger
@@ -73,3 +76,16 @@ app.include_router(router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "email-agent"}
+
+# Serve frontend static files (production)
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend_dist")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(request: Request, full_path: str):
+        # Serve static files or fall back to index.html for SPA routing
+        file_path = os.path.join(FRONTEND_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
